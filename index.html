@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Mindful Journal Mobile</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdf4',
+                            500: '#10b981',
+                            600: '#059669',
+                        },
+                        accent: {
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', '"Noto Sans JP"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', 'Noto Sans JP', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        /* Touch friendly active feedback */
+        .touch-active:active {
+            transform: scale(0.96);
+            opacity: 0.9;
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 16px);
+        }
+        .pt-safe {
+            padding-top: env(safe-area-inset-top, 12px);
+        }
+        ::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 min-h-full flex flex-col justify-between transition-colors duration-200">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 transform -translate-y-16 opacity-0 transition-all duration-300 bg-slate-900/90 dark:bg-slate-800/90 backdrop-blur-md text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg flex items-center space-x-2 pointer-events-none">
+        <i id="toast-icon" class="fas fa-check-circle text-emerald-400"></i>
+        <span id="toast-msg">保存完了</span>
+    </div>
+
+    <!-- Mobile Top Header Bar -->
+    <header class="sticky top-0 z-30 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 pt-safe px-4 py-3 flex items-center justify-between shadow-sm">
+        <div class="flex items-center space-x-2.5">
+            <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500 to-emerald-400 flex items-center justify-center text-white shadow-md text-sm">
+                <i class="fas fa-heart-pulse"></i>
+            </div>
+            <div>
+                <h1 id="top-title" class="text-base font-bold text-slate-900 dark:text-white leading-none">日記を書く</h1>
+                <p id="top-sub" class="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">Mindful Journal</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-1.5">
+            <button onclick="toggleDarkMode()" class="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center touch-active text-xs">
+                <i id="theme-icon" class="fas fa-moon"></i>
+            </button>
+            <button onclick="createNewEntry()" class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-sm touch-active text-xs">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Custom Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-slate-900 rounded-3xl p-5 max-w-xs w-full shadow-2xl border border-slate-200/80 dark:border-slate-800 space-y-4 text-center transform transition-all scale-95 opacity-0" id="delete-modal-content">
+            <div class="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-500 mx-auto flex items-center justify-center text-xl">
+                <i class="fas fa-trash-can"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-sm text-slate-800 dark:text-white">日記の削除</h3>
+                <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">この日記を削除してもよろしいですか？<br><span class="text-[10px] text-rose-500">※削除したデータは復元できません。</span></p>
+            </div>
+            <div class="flex gap-2 pt-1">
+                <button onclick="closeDeleteModal()" class="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800 touch-active">
+                    キャンセル
+                </button>
+                <button id="btn-confirm-delete" onclick="confirmDeleteEntry()" class="flex-1 py-2.5 rounded-xl bg-rose-600 text-white text-xs font-bold shadow-md shadow-rose-200 dark:shadow-none touch-active">
+                    削除する
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container Container with Mobile Scroll Area -->
+    <main class="flex-grow px-3.5 py-4 max-w-md mx-auto w-full mb-16 overflow-y-auto">
+
+        <!-- ==========================================
+             TAB 1: WRITE JOURNAL ENTRY FORM
+        ========================================== -->
+        <section id="sec-write" class="tab-content space-y-4">
+            <form id="journal-form" onsubmit="handleSaveEntry(event)" class="space-y-4">
+                <input type="hidden" id="entry-id" value="">
+
+                <!-- Quick Header Meta Card -->
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <i class="fas fa-calendar-day text-indigo-500 text-sm"></i>
+                            <input type="date" id="entry-date" required class="bg-transparent font-bold text-slate-800 dark:text-white text-sm outline-none">
+                        </div>
+                        <button type="button" onclick="toggleFavoriteCurrent()" id="btn-fav-toggle" class="text-slate-300 dark:text-slate-700 text-lg touch-active">
+                            <i class="fas fa-star"></i>
+                        </button>
+                    </div>
+
+                    <!-- Weather Quick Select -->
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <span class="text-xs text-slate-500 font-medium">天気:</span>
+                        <div class="flex space-x-1.5 text-sm">
+                            <button type="button" onclick="selectWeather('☀️')" class="weather-btn w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center touch-active">☀️</button>
+                            <button type="button" onclick="selectWeather('☁️')" class="weather-btn w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center touch-active">☁️</button>
+                            <button type="button" onclick="selectWeather('🌧️')" class="weather-btn w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center touch-active">🌧️</button>
+                            <button type="button" onclick="selectWeather('❄️')" class="weather-btn w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center touch-active">❄️</button>
+                        </div>
+                        <input type="hidden" id="entry-weather" value="☀️">
+                    </div>
+                </div>
+
+                <!-- 1. Emotion Multi-Select Chips -->
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+                    <div class="flex justify-between items-baseline">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                            <i class="fas fa-face-smile text-amber-500"></i> 今日の感情タグ (複数可)
+                        </span>
+                        <span id="calculated-mood-badge" class="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded-full">
+                            Mood: 7/10
+                        </span>
+                    </div>
+                    <div id="emotions-container" class="grid grid-cols-3 gap-2">
+                        <!-- Dynamic Emotion Buttons -->
+                    </div>
+                </div>
+
+                <!-- 2. Health & Wellness Metrics -->
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3.5">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <i class="fas fa-heart-pulse text-rose-500"></i> コンディション
+                    </span>
+
+                    <!-- Stress Slider -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                            <span><i class="fas fa-brain text-purple-400 mr-1"></i>ストレス度</span>
+                            <span id="val-stress" class="font-bold text-purple-600 dark:text-purple-400">3 / 10</span>
+                        </div>
+                        <input type="range" id="stress-level" min="1" max="10" value="3" oninput="document.getElementById('val-stress').innerText = this.value + ' / 10'" class="w-full accent-purple-500 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Sleep Hours Slider -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                            <span><i class="fas fa-moon text-indigo-400 mr-1"></i>睡眠時間</span>
+                            <span id="val-sleep" class="font-bold text-indigo-600 dark:text-indigo-400">7.0 時間</span>
+                        </div>
+                        <input type="range" id="sleep-hours" min="0" max="12" step="0.5" value="7.0" oninput="document.getElementById('val-sleep').innerText = parseFloat(this.value).toFixed(1) + ' 時間'" class="w-full accent-indigo-500 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Energy Level Slider -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                            <span><i class="fas fa-bolt text-amber-400 mr-1"></i>エネルギー</span>
+                            <span id="val-energy" class="font-bold text-amber-600 dark:text-amber-400">8 / 10</span>
+                        </div>
+                        <input type="range" id="energy-level" min="1" max="10" value="8" oninput="document.getElementById('val-energy').innerText = this.value + ' / 10'" class="w-full accent-amber-500 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer">
+                    </div>
+
+                    <!-- Habit Checklist Chips -->
+                    <div class="pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <label class="cursor-pointer">
+                                <input type="checkbox" id="chk-exercise" class="hidden peer">
+                                <span class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 peer-checked:bg-emerald-50 dark:peer-checked:bg-emerald-950/60 peer-checked:border-emerald-400 peer-checked:text-emerald-600 dark:peer-checked:text-emerald-400 transition flex items-center justify-center gap-1 font-medium text-[11px]">
+                                    🏃‍♂️ 運動・散歩
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" id="chk-water" class="hidden peer">
+                                <span class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-950/60 peer-checked:border-blue-400 peer-checked:text-blue-600 dark:peer-checked:text-blue-400 transition flex items-center justify-center gap-1 font-medium text-[11px]">
+                                    💧 水分補給
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" id="chk-meditation" class="hidden peer">
+                                <span class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 peer-checked:bg-indigo-50 dark:peer-checked:bg-indigo-950/60 peer-checked:border-indigo-400 peer-checked:text-indigo-600 dark:peer-checked:text-indigo-400 transition flex items-center justify-center gap-1 font-medium text-[11px]">
+                                    🧘‍♀️ 瞑想・休憩
+                                </span>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" id="chk-reading" class="hidden peer">
+                                <span class="p-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-400 peer-checked:bg-amber-50 dark:peer-checked:bg-amber-950/60 peer-checked:border-amber-400 peer-checked:text-amber-600 dark:peer-checked:text-amber-400 transition flex items-center justify-center gap-1 font-medium text-[11px]">
+                                    📚 読書・勉強
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. Free Text Diary -->
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-2.5">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                            <i class="fas fa-pen-to-square text-indigo-500"></i> 日記本文
+                        </span>
+                        <button type="button" onclick="getRandomPrompt()" class="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-semibold flex items-center gap-1">
+                            💡 書き方ヒント
+                        </button>
+                    </div>
+
+                    <!-- Prompt Suggestion -->
+                    <div id="prompt-box" class="p-2.5 bg-indigo-50/70 dark:bg-indigo-950/40 rounded-xl text-[11px] text-indigo-900 dark:text-indigo-300 flex items-center justify-between">
+                        <span id="prompt-text">今日あった嬉しかったこと・感謝したことは？</span>
+                        <i class="fas fa-rotate text-indigo-400 text-xs ml-2 cursor-pointer" onclick="getRandomPrompt()"></i>
+                    </div>
+
+                    <textarea id="journal-text" rows="5" oninput="updateWordCount()" placeholder="今日の出来事や感情を素直に書き留めましょう..." class="w-full p-3 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs sm:text-sm text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-indigo-500 resize-none leading-relaxed"></textarea>
+
+                    <div class="flex items-center justify-between text-[11px] text-slate-400">
+                        <select id="entry-category" class="bg-slate-100 dark:bg-slate-800 border-none rounded-xl px-2 py-1 text-slate-600 dark:text-slate-300 font-medium">
+                            <option value="プライベート">🏠 プライベート</option>
+                            <option value="仕事・学習">💼 仕事・学習</option>
+                            <option value="趣味・外出">🎨 趣味・外出</option>
+                            <option value="感謝">🙏 感謝・振り返り</option>
+                        </select>
+                        <span id="char-count">0 文字</span>
+                    </div>
+
+                    <!-- Photo Upload Button -->
+                    <div class="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                        <label class="cursor-pointer text-xs text-indigo-600 dark:text-indigo-400 font-semibold flex items-center gap-1.5">
+                            <i class="fas fa-image"></i> 写真を追加
+                            <input type="file" id="image-upload" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+                        </label>
+                        <div id="image-preview-container" class="hidden relative">
+                            <img id="image-preview" src="" class="h-10 w-10 object-cover rounded-lg border border-slate-200 dark:border-slate-700">
+                            <button type="button" onclick="removeAttachedImage()" class="absolute -top-1.5 -right-1.5 bg-rose-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-[9px]">×</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none touch-active flex items-center justify-center gap-2">
+                    <i class="fas fa-floppy-disk"></i> 日記を保存する
+                </button>
+            </form>
+        </section>
+
+        <!-- ==========================================
+             TAB 2: CALENDAR VIEW
+        ========================================== -->
+        <section id="sec-calendar" class="tab-content hidden space-y-4">
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+                <div class="flex items-center justify-between">
+                    <button onclick="changeCalendarMonth(-1)" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs"><i class="fas fa-chevron-left"></i></button>
+                    <h2 id="calendar-month-year" class="font-bold text-sm text-slate-800 dark:text-white">2026年 11月</h2>
+                    <button onclick="changeCalendarMonth(1)" class="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs"><i class="fas fa-chevron-right"></i></button>
+                </div>
+
+                <!-- Calendar Weekday Headers -->
+                <div class="grid grid-cols-7 gap-1 text-center font-bold text-[10px] text-slate-400">
+                    <div class="text-rose-500">日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div class="text-sky-500">土</div>
+                </div>
+
+                <!-- Calendar Days Grid -->
+                <div id="calendar-days-grid" class="grid grid-cols-7 gap-1">
+                    <!-- Dynamic Days -->
+                </div>
+            </div>
+
+            <!-- Selected Date Detail Preview Card -->
+            <div id="calendar-detail-card" class="hidden bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-2">
+                <!-- Dynamic Detail Content -->
+            </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 3: ANALYTICS & LINE CHART
+        ========================================== -->
+        <section id="sec-analytics" class="tab-content hidden space-y-4">
+            
+            <!-- Insight Header Banner -->
+            <div id="insight-banner" class="bg-gradient-to-r from-indigo-600 to-emerald-500 text-white p-4 rounded-3xl shadow-sm space-y-1">
+                <div class="flex items-center justify-between text-xs opacity-80">
+                    <span><i class="fas fa-sparkles mr-1"></i>AI感情分析インサイト</span>
+                    <span id="insight-period-label">直近7日間</span>
+                </div>
+                <p id="insight-text" class="text-xs font-semibold leading-relaxed">過去7日間、穏やかさと達成感の感情タグが最も多く記録され、気分の安定度が高まっています！</p>
+            </div>
+
+            <!-- Line Chart Range Toggle -->
+            <div class="flex bg-slate-200/70 dark:bg-slate-800 p-1 rounded-2xl text-xs font-semibold">
+                <button onclick="setChartRange(7)" id="range-btn-7" class="range-btn active flex-1 py-1.5 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white shadow-sm">7日間</button>
+                <button onclick="setChartRange(14)" id="range-btn-14" class="range-btn flex-1 py-1.5 rounded-xl text-slate-500 dark:text-slate-400">14日間</button>
+                <button onclick="setChartRange(30)" id="range-btn-30" class="range-btn flex-1 py-1.5 rounded-xl text-slate-500 dark:text-slate-400">30日間</button>
+            </div>
+
+            <!-- MAIN LINE GRAPH CARD -->
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                        <i class="fas fa-chart-line text-indigo-500"></i> 感情＆ストレス推移グラフ
+                    </h3>
+                </div>
+
+                <!-- Line Chart Toggle Filters -->
+                <div class="flex items-center justify-around text-[10px] font-semibold border-b border-slate-100 dark:border-slate-800 pb-2">
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" id="chk-show-mood" checked onchange="updateLineChartData()" class="accent-indigo-600">
+                        <span class="text-indigo-600 dark:text-indigo-400">● 気分 (1-10)</span>
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" id="chk-show-stress" checked onchange="updateLineChartData()" class="accent-purple-600">
+                        <span class="text-purple-600 dark:text-purple-400">● ストレス (1-10)</span>
+                    </label>
+                    <label class="flex items-center gap-1 cursor-pointer">
+                        <input type="checkbox" id="chk-show-sleep" checked onchange="updateLineChartData()" class="accent-emerald-600">
+                        <span class="text-emerald-600 dark:text-emerald-400">● 睡眠 (h)</span>
+                    </label>
+                </div>
+
+                <div class="w-full h-64 relative">
+                    <canvas id="chart-main-line"></canvas>
+                </div>
+            </div>
+
+            <!-- Emotion Distribution Donut Chart -->
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-2">
+                <h3 class="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                    <i class="fas fa-chart-pie text-amber-500"></i> 感情タグの出現割合
+                </h3>
+                <div class="w-full h-48 relative">
+                    <canvas id="chart-emotions-pie"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 4: HISTORY & SEARCH LIST
+        ========================================== -->
+        <section id="sec-history" class="tab-content hidden space-y-3">
+            <!-- Search & Filter Controls -->
+            <div class="bg-white dark:bg-slate-900 p-3 rounded-2xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-2">
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input type="text" id="search-keyword" oninput="renderHistoryList()" placeholder="キーワードで検索..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs text-slate-800 dark:text-slate-100 outline-none">
+                </div>
+                <div class="flex gap-2 text-xs">
+                    <select id="filter-emotion" onchange="renderHistoryList()" class="flex-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2 py-1 text-[11px] text-slate-700 dark:text-slate-300">
+                        <option value="">すべての感情</option>
+                    </select>
+                    <button id="btn-filter-fav" onclick="toggleFavFilter()" class="px-3 py-1 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-[11px] text-slate-600 dark:text-slate-300 font-semibold flex items-center gap-1">
+                        <i class="fas fa-star text-amber-400"></i> ★
+                    </button>
+                </div>
+            </div>
+
+            <!-- List Container -->
+            <div id="entries-list" class="space-y-3">
+                <!-- Dynamic Entries -->
+            </div>
+        </section>
+
+        <!-- ==========================================
+             TAB 5: SETTINGS & DATA MANAGEMENT
+        ========================================== -->
+        <section id="sec-settings" class="tab-content hidden space-y-4">
+            <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+                <h2 class="text-xs font-bold text-slate-800 dark:text-white flex items-center gap-1.5">
+                    <i class="fas fa-floppy-disk text-indigo-500"></i> バックアップ & エクスポート
+                </h2>
+                <div class="space-y-2 pt-1">
+                    <button onclick="exportDataJSON()" class="w-full py-2.5 rounded-2xl bg-indigo-600 text-white font-semibold text-xs touch-active flex items-center justify-center gap-2">
+                        <i class="fas fa-download"></i> JSON形式でバックアップ出力
+                    </button>
+                    <label class="cursor-pointer w-full py-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold text-xs touch-active flex items-center justify-center gap-2">
+                        <i class="fas fa-upload text-indigo-500"></i> バックアップを復元
+                        <input type="file" accept=".json" onchange="importDataJSON(event)" class="hidden">
+                    </label>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- FIXED MOBILE BOTTOM NAVIGATION BAR -->
+    <nav class="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 pb-safe">
+        <div class="max-w-md mx-auto grid grid-cols-5 h-14">
+            <button onclick="switchTab('write')" id="nav-write" class="mobile-nav flex flex-col items-center justify-center text-indigo-600 dark:text-indigo-400">
+                <i class="fas fa-pen-to-square text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">作成</span>
+            </button>
+            <button onclick="switchTab('calendar')" id="nav-calendar" class="mobile-nav flex flex-col items-center justify-center text-slate-400">
+                <i class="fas fa-calendar-days text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">カレンダー</span>
+            </button>
+            <button onclick="switchTab('analytics')" id="nav-analytics" class="mobile-nav flex flex-col items-center justify-center text-slate-400">
+                <i class="fas fa-chart-line text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">グラフ</span>
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="mobile-nav flex flex-col items-center justify-center text-slate-400">
+                <i class="fas fa-list-ul text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">履歴</span>
+            </button>
+            <button onclick="switchTab('settings')" id="nav-settings" class="mobile-nav flex flex-col items-center justify-center text-slate-400">
+                <i class="fas fa-gear text-base"></i>
+                <span class="text-[10px] font-semibold mt-0.5">設定</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- App Logic Script -->
+    <script>
+        const EMOTIONS_PRESETS = [
+            { id: 'happy', label: '嬉しい', emoji: '😊', weight: 9, color: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300' },
+            { id: 'calm', label: '穏やか', emoji: '😌', weight: 8, color: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300' },
+            { id: 'fulfilled', label: '達成感', emoji: '🥳', weight: 10, color: 'bg-teal-100 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border-teal-300' },
+            { id: 'tired', label: '疲れた', emoji: '😴', weight: 4, color: 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-300 border-slate-300' },
+            { id: 'anxious', label: '不安', emoji: '😟', weight: 3, color: 'bg-indigo-100 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border-indigo-300' },
+            { id: 'angry', label: 'イライラ', emoji: '😤', weight: 2, color: 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300' }
+        ];
+
+        const PROMPTS = [
+            "今日あった嬉しかったこと・感謝したことは？",
+            "今日自分をほめてあげたい行動は？",
+            "今日一番心に残った瞬間や出来事は？",
+            "明日もっと心地よく過ごすためのアイディアは？"
+        ];
+
+        let selectedEmotions = new Set();
+        let journalEntries = [];
+        let currentRangeDays = 7;
+        let isCurrentFavorite = false;
+        let attachedImageBase64 = null;
+        let filterOnlyFav = false;
+        let pendingDeleteId = null;
+
+        let calCurrentYear = new Date().getFullYear();
+        let calCurrentMonth = new Date().getMonth();
+
+        let chartMainLineInstance = null;
+        let chartEmotionsPieInstance = null;
+
+        window.onload = function () {
+            document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+            loadEntriesFromStorage();
+            renderEmotionChips();
+            populateEmotionFilter();
+            renderCalendarGrid();
+        };
+
+        function toggleDarkMode() {
+            const html = document.documentElement;
+            const icon = document.getElementById('theme-icon');
+            if (html.classList.contains('dark')) {
+                html.classList.remove('dark');
+                icon.className = 'fas fa-moon';
+            } else {
+                html.classList.add('dark');
+                icon.className = 'fas fa-sun text-amber-400';
+            }
+        }
+
+        function renderEmotionChips() {
+            const container = document.getElementById('emotions-container');
+            container.innerHTML = EMOTIONS_PRESETS.map(e => `
+                <button type="button" 
+                    id="btn-emo-${e.id}"
+                    onclick="toggleEmotion('${e.id}')"
+                    class="p-2 rounded-2xl text-xs font-semibold border ${e.color} opacity-70 hover:opacity-100 flex items-center justify-center space-x-1 touch-active">
+                    <span>${e.emoji}</span>
+                    <span>${e.label}</span>
+                </button>
+            `).join('');
+        }
+
+        function toggleEmotion(id) {
+            const btn = document.getElementById(`btn-emo-${id}`);
+            if (selectedEmotions.has(id)) {
+                selectedEmotions.delete(id);
+                btn.classList.remove('opacity-100', 'ring-2', 'ring-indigo-500');
+                btn.classList.add('opacity-70');
+            } else {
+                selectedEmotions.add(id);
+                btn.classList.add('opacity-100', 'ring-2', 'ring-indigo-500');
+                btn.classList.remove('opacity-70');
+            }
+            updateCalculatedMoodScore();
+        }
+
+        function updateCalculatedMoodScore() {
+            if (selectedEmotions.size === 0) {
+                document.getElementById('calculated-mood-badge').innerText = `Mood: 7/10`;
+                return;
+            }
+            let sum = 0;
+            selectedEmotions.forEach(id => {
+                const found = EMOTIONS_PRESETS.find(p => p.id === id);
+                if (found) sum += found.weight;
+            });
+            const avg = Math.round(sum / selectedEmotions.size);
+            document.getElementById('calculated-mood-badge').innerText = `Mood: ${avg}/10`;
+        }
+
+        function selectWeather(wEmoji) {
+            document.getElementById('entry-weather').value = wEmoji;
+            document.querySelectorAll('.weather-btn').forEach(b => {
+                if (b.innerText.includes(wEmoji)) {
+                    b.classList.add('ring-2', 'ring-indigo-500', 'bg-indigo-50');
+                } else {
+                    b.classList.remove('ring-2', 'ring-indigo-500', 'bg-indigo-50');
+                }
+            });
+        }
+
+        function toggleFavoriteCurrent() {
+            isCurrentFavorite = !isCurrentFavorite;
+            const btn = document.getElementById('btn-fav-toggle');
+            if (isCurrentFavorite) {
+                btn.className = 'text-amber-400 text-lg touch-active';
+            } else {
+                btn.className = 'text-slate-300 dark:text-slate-700 text-lg touch-active';
+            }
+        }
+
+        function getRandomPrompt() {
+            const p = PROMPTS[Math.floor(Math.random() * PROMPTS.length)];
+            document.getElementById('prompt-text').innerText = p;
+        }
+
+        function updateWordCount() {
+            const text = document.getElementById('journal-text').value;
+            document.getElementById('char-count').innerText = `${text.length} 文字`;
+        }
+
+        function handleImageUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                attachedImageBase64 = evt.target.result;
+                document.getElementById('image-preview').src = attachedImageBase64;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function removeAttachedImage() {
+            attachedImageBase64 = null;
+            document.getElementById('image-upload').value = '';
+            document.getElementById('image-preview-container').classList.add('hidden');
+        }
+
+        function handleSaveEntry(e) {
+            e.preventDefault();
+            const date = document.getElementById('entry-date').value;
+            const entryId = document.getElementById('entry-id').value || 'entry_' + Date.now();
+            
+            let moodVal = 7;
+            if (selectedEmotions.size > 0) {
+                let sum = 0;
+                selectedEmotions.forEach(id => {
+                    const found = EMOTIONS_PRESETS.find(p => p.id === id);
+                    if (found) sum += found.weight;
+                });
+                moodVal = Math.round(sum / selectedEmotions.size);
+            }
+
+            const entry = {
+                id: entryId,
+                date: date,
+                moodScore: moodVal,
+                weather: document.getElementById('entry-weather').value,
+                category: document.getElementById('entry-category').value,
+                emotions: Array.from(selectedEmotions),
+                sleepHours: parseFloat(document.getElementById('sleep-hours').value),
+                energyLevel: parseInt(document.getElementById('energy-level').value),
+                stressLevel: parseInt(document.getElementById('stress-level').value),
+                habits: {
+                    exercise: document.getElementById('chk-exercise').checked,
+                    water: document.getElementById('chk-water').checked,
+                    meditation: document.getElementById('chk-meditation').checked,
+                    reading: document.getElementById('chk-reading').checked
+                },
+                content: document.getElementById('journal-text').value,
+                image: attachedImageBase64,
+                isFavorite: isCurrentFavorite
+            };
+
+            const idx = journalEntries.findIndex(i => i.id === entryId || i.date === date);
+            if (idx >= 0) journalEntries[idx] = entry;
+            else journalEntries.push(entry);
+
+            journalEntries.sort((a, b) => new Date(b.date) - new Date(a.date));
+            localStorage.setItem('mindful_journal_mobile_entries', JSON.stringify(journalEntries));
+
+            showToast('日記を保存しました！');
+            resetForm();
+            switchTab('analytics');
+        }
+
+        function resetForm() {
+            document.getElementById('journal-form').reset();
+            document.getElementById('entry-id').value = '';
+            document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+            document.getElementById('val-stress').innerText = '3 / 10';
+            document.getElementById('val-sleep').innerText = '7.0 時間';
+            document.getElementById('val-energy').innerText = '8 / 10';
+            selectedEmotions.clear();
+            renderEmotionChips();
+            updateCalculatedMoodScore();
+            removeAttachedImage();
+            isCurrentFavorite = false;
+            document.getElementById('btn-fav-toggle').className = 'text-slate-300 dark:text-slate-700 text-lg touch-active';
+            updateWordCount();
+        }
+
+        function createNewEntry() {
+            resetForm();
+            switchTab('write');
+        }
+
+        function loadEntriesFromStorage() {
+            try {
+                const stored = localStorage.getItem('mindful_journal_mobile_entries');
+                if (stored) {
+                    journalEntries = JSON.parse(stored);
+                } else {
+                    seedSampleData();
+                }
+            } catch (err) {
+                journalEntries = [];
+            }
+        }
+
+        function seedSampleData() {
+            const today = new Date();
+            const sample = [];
+            const emos = ['happy', 'calm', 'fulfilled', 'tired', 'anxious'];
+
+            for (let i = 7; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = d.toISOString().split('T')[0];
+                sample.push({
+                    id: 'sample_' + i,
+                    date: dateStr,
+                    moodScore: Math.floor(6 + Math.sin(i) * 3),
+                    weather: '☀️',
+                    category: 'プライベート',
+                    emotions: [emos[i % emos.length]],
+                    sleepHours: 7.0 + (i % 2) * 0.5,
+                    energyLevel: 8,
+                    stressLevel: 3,
+                    habits: { exercise: true, water: true },
+                    content: `${dateStr} の記録: 朝の散歩が心地よかった。夕方にタスクが完了しリフレッシュできた。`,
+                    isFavorite: i % 3 === 0
+                });
+            }
+            journalEntries = sample;
+            localStorage.setItem('mindful_journal_mobile_entries', JSON.stringify(journalEntries));
+        }
+
+        function populateEmotionFilter() {
+            const select = document.getElementById('filter-emotion');
+            select.innerHTML = '<option value="">すべての感情</option>' +
+                EMOTIONS_PRESETS.map(e => `<option value="${e.id}">${e.emoji} ${e.label}</option>`).join('');
+        }
+
+        // ==========================================
+        // CALENDAR
+        // ==========================================
+        function changeCalendarMonth(delta) {
+            calCurrentMonth += delta;
+            if (calCurrentMonth < 0) { calCurrentMonth = 11; calCurrentYear--; }
+            else if (calCurrentMonth > 11) { calCurrentMonth = 0; calCurrentYear++; }
+            renderCalendarGrid();
+        }
+
+        function renderCalendarGrid() {
+            document.getElementById('calendar-month-year').innerText = `${calCurrentYear}年 ${calCurrentMonth + 1}月`;
+            const grid = document.getElementById('calendar-days-grid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(calCurrentYear, calCurrentMonth, 1).getDay();
+            const daysInMonth = new Date(calCurrentYear, calCurrentMonth + 1, 0).getDate();
+
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div class="h-10 bg-slate-50/50 dark:bg-slate-950/40 rounded-xl"></div>`;
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dStr = String(day).padStart(2, '0');
+                const mStr = String(calCurrentMonth + 1).padStart(2, '0');
+                const fullDate = `${calCurrentYear}-${mStr}-${dStr}`;
+
+                const entry = journalEntries.find(e => e.date === fullDate);
+                const isToday = new Date().toISOString().split('T')[0] === fullDate;
+
+                let emoEmoji = '';
+                if (entry && entry.emotions && entry.emotions[0]) {
+                    const p = EMOTIONS_PRESETS.find(x => x.id === entry.emotions[0]);
+                    if (p) emoEmoji = p.emoji;
+                }
+
+                grid.innerHTML += `
+                    <button onclick="selectCalendarDate('${fullDate}')" class="h-10 p-1 rounded-xl bg-white dark:bg-slate-950 border ${isToday ? 'border-indigo-500 ring-1 ring-indigo-300' : 'border-slate-200/60 dark:border-slate-800'} flex flex-col items-center justify-between touch-active">
+                        <span class="text-[10px] font-bold ${isToday ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-600 dark:text-slate-300'}">${day}</span>
+                        <span class="text-xs leading-none">${emoEmoji}</span>
+                    </button>
+                `;
+            }
+        }
+
+        function selectCalendarDate(dateStr) {
+            const entry = journalEntries.find(e => e.date === dateStr);
+            const card = document.getElementById('calendar-detail-card');
+            card.classList.remove('hidden');
+
+            if (!entry) {
+                card.innerHTML = `
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="font-bold text-slate-700 dark:text-slate-300">${dateStr} の記録なし</span>
+                        <button onclick="createNewForDate('${dateStr}')" class="px-2.5 py-1 bg-indigo-600 text-white font-bold rounded-lg">作成</button>
+                    </div>
+                `;
+                return;
+            }
+
+            card.innerHTML = `
+                <div class="flex justify-between items-center border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                    <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-xs text-slate-800 dark:text-white">${entry.date} (${entry.weather})</span>
+                        <span class="text-[11px] font-bold text-indigo-600">Mood ${entry.moodScore}/10</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button onclick="editEntry('${entry.id}')" class="text-slate-400 hover:text-indigo-600 text-xs p-1 touch-active">
+                            <i class="fas fa-pen"></i>
+                        </button>
+                        <button onclick="openDeleteModal('${entry.id}')" class="text-slate-400 hover:text-rose-500 text-xs p-1 touch-active">
+                            <i class="fas fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">${escapeHtml(entry.content)}</p>
+            `;
+        }
+
+        function createNewForDate(dateStr) {
+            resetForm();
+            document.getElementById('entry-date').value = dateStr;
+            switchTab('write');
+        }
+
+        // ==========================================
+        // HISTORY LIST
+        // ==========================================
+        function toggleFavFilter() {
+            filterOnlyFav = !filterOnlyFav;
+            const btn = document.getElementById('btn-filter-fav');
+            if (filterOnlyFav) btn.classList.add('bg-amber-100', 'border-amber-300', 'text-amber-700');
+            else btn.classList.remove('bg-amber-100', 'border-amber-300', 'text-amber-700');
+            renderHistoryList();
+        }
+
+        function renderHistoryList() {
+            const container = document.getElementById('entries-list');
+            const searchKw = document.getElementById('search-keyword').value.toLowerCase();
+            const filterEmo = document.getElementById('filter-emotion').value;
+
+            const filtered = journalEntries.filter(item => {
+                const matchKw = item.content.toLowerCase().includes(searchKw) || item.date.includes(searchKw);
+                const matchEmo = filterEmo ? (item.emotions && item.emotions.includes(filterEmo)) : true;
+                const matchFav = filterOnlyFav ? item.isFavorite : true;
+                return matchKw && matchEmo && matchFav;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<p class="text-center text-xs text-slate-400 py-6">エントリーが見つかりません</p>`;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const emotionBadges = (item.emotions || []).map(id => {
+                    const p = EMOTIONS_PRESETS.find(x => x.id === id);
+                    return p ? `${p.emoji}${p.label}` : '';
+                }).join(' ');
+
+                return `
+                    <div class="bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200/70 dark:border-slate-800 space-y-2">
+                        <div class="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5">
+                            <div class="flex items-center space-x-1.5">
+                                <span class="font-bold text-xs text-slate-800 dark:text-white">${item.date}</span>
+                                <span class="text-xs">${item.weather || ''}</span>
+                                ${item.isFavorite ? '<i class="fas fa-star text-amber-400 text-xs"></i>' : ''}
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-full">Mood: ${item.moodScore}/10</span>
+                                <button onclick="editEntry('${item.id}')" class="text-slate-400 hover:text-indigo-600 text-xs p-1 touch-active" title="編集">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <button onclick="openDeleteModal('${item.id}')" class="text-slate-400 hover:text-rose-500 text-xs p-1 touch-active" title="削除">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">${escapeHtml(item.content)}</p>
+                        ${item.image ? `<img src="${item.image}" class="h-20 w-auto rounded-lg object-cover border border-slate-100 dark:border-slate-800">` : ''}
+                        <div class="text-[10px] text-slate-400 font-medium">感情: ${emotionBadges || 'なし'}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // ==========================================
+        // EDIT & DELETE MODAL LOGIC
+        // ==========================================
+        function editEntry(id) {
+            const entry = journalEntries.find(e => e.id === id);
+            if (!entry) return;
+
+            resetForm();
+            document.getElementById('entry-id').value = entry.id;
+            document.getElementById('entry-date').value = entry.date;
+            document.getElementById('entry-weather').value = entry.weather || '☀️';
+            selectWeather(entry.weather || '☀️');
+            document.getElementById('entry-category').value = entry.category || 'プライベート';
+            
+            if (entry.emotions) {
+                entry.emotions.forEach(emoId => toggleEmotion(emoId));
+            }
+
+            document.getElementById('stress-level').value = entry.stressLevel || 3;
+            document.getElementById('val-stress').innerText = (entry.stressLevel || 3) + ' / 10';
+
+            document.getElementById('sleep-hours').value = entry.sleepHours || 7.0;
+            document.getElementById('val-sleep').innerText = (entry.sleepHours || 7.0).toFixed(1) + ' 時間';
+
+            document.getElementById('energy-level').value = entry.energyLevel || 8;
+            document.getElementById('val-energy').innerText = (entry.energyLevel || 8) + ' / 10';
+
+            if (entry.habits) {
+                document.getElementById('chk-exercise').checked = !!entry.habits.exercise;
+                document.getElementById('chk-water').checked = !!entry.habits.water;
+                document.getElementById('chk-meditation').checked = !!entry.habits.meditation;
+                document.getElementById('chk-reading').checked = !!entry.habits.reading;
+            }
+
+            document.getElementById('journal-text').value = entry.content || '';
+            updateWordCount();
+
+            if (entry.image) {
+                attachedImageBase64 = entry.image;
+                document.getElementById('image-preview').src = attachedImageBase64;
+                document.getElementById('image-preview-container').classList.remove('hidden');
+            }
+
+            if (entry.isFavorite) {
+                toggleFavoriteCurrent();
+            }
+
+            switchTab('write');
+        }
+
+        function openDeleteModal(id) {
+            pendingDeleteId = id;
+            const modal = document.getElementById('delete-modal');
+            const content = document.getElementById('delete-modal-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                content.classList.remove('scale-95', 'opacity-0');
+                content.classList.add('scale-100', 'opacity-100');
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            const content = document.getElementById('delete-modal-content');
+            content.classList.remove('scale-100', 'opacity-100');
+            content.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                document.getElementById('delete-modal').classList.add('hidden');
+                pendingDeleteId = null;
+            }, 150);
+        }
+
+        function confirmDeleteEntry() {
+            if (!pendingDeleteId) return;
+
+            journalEntries = journalEntries.filter(e => e.id !== pendingDeleteId);
+            localStorage.setItem('mindful_journal_mobile_entries', JSON.stringify(journalEntries));
+
+            closeDeleteModal();
+            showToast('日記を削除しました');
+
+            // Refresh Active Views
+            renderHistoryList();
+            renderCalendarGrid();
+            document.getElementById('calendar-detail-card').classList.add('hidden');
+            renderLineCharts();
+        }
+
+        // ==========================================
+        // ANALYTICS & LINE GRAPH
+        // ==========================================
+        function setChartRange(days) {
+            currentRangeDays = days;
+            document.querySelectorAll('.range-btn').forEach(b => {
+                b.classList.remove('bg-white', 'dark:bg-slate-900', 'text-slate-800', 'dark:text-white', 'shadow-sm');
+                b.classList.add('text-slate-500');
+            });
+            const active = document.getElementById(`range-btn-${days}`);
+            if (active) {
+                active.classList.add('bg-white', 'dark:bg-slate-900', 'text-slate-800', 'dark:text-white', 'shadow-sm');
+                active.classList.remove('text-slate-500');
+            }
+            renderLineCharts();
+        }
+
+        function getFilteredEntries() {
+            let sorted = [...journalEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+            if (currentRangeDays > 0 && sorted.length > currentRangeDays) {
+                sorted = sorted.slice(-currentRangeDays);
+            }
+            return sorted;
+        }
+
+        function renderLineCharts() {
+            updateLineChartData();
+            renderEmotionsPieChart();
+        }
+
+        function updateLineChartData() {
+            const data = getFilteredEntries();
+            const dateLabels = data.map(d => d.date.substring(5));
+
+            const showMood = document.getElementById('chk-show-mood').checked;
+            const showStress = document.getElementById('chk-show-stress').checked;
+            const showSleep = document.getElementById('chk-show-sleep').checked;
+
+            const datasets = [];
+
+            if (showMood) {
+                datasets.push({
+                    label: '気分',
+                    data: data.map(d => d.moodScore),
+                    borderColor: '#6366f1',
+                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.3
+                });
+            }
+
+            if (showStress) {
+                datasets.push({
+                    label: 'ストレス',
+                    data: data.map(d => d.stressLevel),
+                    borderColor: '#a855f7',
+                    borderWidth: 2,
+                    borderDash: [3, 3],
+                    fill: false,
+                    tension: 0.3
+                });
+            }
+
+            if (showSleep) {
+                datasets.push({
+                    label: '睡眠(h)',
+                    data: data.map(d => d.sleepHours),
+                    borderColor: '#10b981',
+                    borderWidth: 2,
+                    fill: false,
+                    tension: 0.2
+                });
+            }
+
+            const ctx = document.getElementById('chart-main-line').getContext('2d');
+            if (chartMainLineInstance) chartMainLineInstance.destroy();
+
+            chartMainLineInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dateLabels, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { min: 0, max: 10 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function renderEmotionsPieChart() {
+            const data = getFilteredEntries();
+            const counts = {};
+            data.forEach(d => {
+                (d.emotions || []).forEach(e => counts[e] = (counts[e] || 0) + 1);
+            });
+
+            const labels = [];
+            const values = [];
+            EMOTIONS_PRESETS.forEach(p => {
+                if (counts[p.id]) {
+                    labels.push(`${p.emoji}${p.label}`);
+                    values.push(counts[p.id]);
+                }
+            });
+
+            const ctx = document.getElementById('chart-emotions-pie').getContext('2d');
+            if (chartEmotionsPieInstance) chartEmotionsPieInstance.destroy();
+
+            chartEmotionsPieInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: ['#f59e0b', '#10b981', '#14b8a6', '#64748b', '#6366f1', '#f43f5e']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } }
+                }
+            });
+        }
+
+        // Navigation Switcher
+        function switchTab(key) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.mobile-nav').forEach(btn => {
+                btn.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+                btn.classList.add('text-slate-400');
+            });
+
+            document.getElementById(`sec-${key}`).classList.remove('hidden');
+            const nav = document.getElementById(`nav-${key}`);
+            if (nav) {
+                nav.classList.add('text-indigo-600', 'dark:text-indigo-400');
+                nav.classList.remove('text-slate-400');
+            }
+
+            const titles = { write: '日記を書く', calendar: 'カレンダー', analytics: '感情・推移グラフ', history: '過去日記一覧', settings: 'アプリ設定' };
+            document.getElementById('top-title').innerText = titles[key] || 'Mindful Journal';
+
+            if (key === 'analytics') renderLineCharts();
+            else if (key === 'calendar') renderCalendarGrid();
+            else if (key === 'history') renderHistoryList();
+        }
+
+        function exportDataJSON() {
+            const blob = new Blob([JSON.stringify(journalEntries, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `journal_mobile_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            showToast('JSONを出力しました');
+        }
+
+        function importDataJSON(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (evt) {
+                try {
+                    journalEntries = JSON.parse(evt.target.result);
+                    localStorage.setItem('mindful_journal_mobile_entries', JSON.stringify(journalEntries));
+                    showToast('データを復元しました');
+                    switchTab('history');
+                } catch (err) { showToast('読み込みに失敗しました'); }
+            };
+            reader.readAsText(file);
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            toast.classList.remove('-translate-y-16', 'opacity-0');
+            setTimeout(() => { toast.classList.add('-translate-y-16', 'opacity-0'); }, 2500);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+    </script>
+</body>
+</html>
