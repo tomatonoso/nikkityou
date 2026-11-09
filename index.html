@@ -274,13 +274,13 @@
                         <i class="fas fa-robot text-emerald-500"></i> ChatGPT連携・AIメッセージ
                     </span>
 
-                    <!-- ワンタップボタン群 -->
+                  <!-- ワンタップボタン群 -->
                     <div class="grid grid-cols-2 gap-2">
                         <button type="button" onclick="copyPromptForChatGPT()" class="py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] flex items-center justify-center gap-1.5 touch-active">
                             <i class="fas fa-copy"></i> プロンプトをコピー
                         </button>
-                        <a href="https://chatgpt.com" target="_blank" class="py-2 px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 touch-active">
-                            <i class="fas fa-external-link-alt"></i> ChatGPTを開く
+                        <a href="chatgpt://" class="py-2 px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 touch-active">
+                            <i class="fas fa-external-link-alt"></i> ChatGPTアプリを開く
                         </a>
                     </div>
 
@@ -1138,9 +1138,52 @@ updateAiMsgWordCount();
             setTimeout(() => { toast.classList.add('-translate-y-16', 'opacity-0'); }, 2500);
         }
 
-        function escapeHtml(str) {
+       function escapeHtml(str) {
             if (!str) return '';
             return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        // ==========================================
+        // CHATGPT APP INTEGRATION & AI MESSAGE
+        // ==========================================
+        function updateAiMsgWordCount() {
+            const text = document.getElementById('ai-message-input').value;
+            document.getElementById('ai-msg-char-count').innerText = `${text.length} / 500文字`;
+        }
+
+        function copyPromptForChatGPT() {
+            const date = document.getElementById('entry-date').value;
+            const weather = document.getElementById('entry-weather').value;
+            const mood = document.getElementById('calculated-mood-badge').innerText;
+            const stress = document.getElementById('stress-level').value;
+            const sleep = document.getElementById('sleep-hours').value;
+            const energy = document.getElementById('energy-level').value;
+            const content = document.getElementById('journal-text').value;
+
+            // 選択されている感情タグを取得
+            const emoLabels = Array.from(selectedEmotions).map(id => {
+                const found = EMOTIONS_PRESETS.find(p => p.id === id);
+                return found ? `${found.emoji}${found.label}` : '';
+            }).filter(Boolean).join(', ');
+
+            const promptText = `【本日の日記データ分析依頼】
+以下の日記データをもとに、温かいフィードバックとアドバイスを500文字以内で作成してください。
+
+■ 日時: ${date} (${weather})
+■ 気分・感情: ${mood} / 感情タグ: [${emoLabels || '指定なし'}]
+■ コンディション: ストレス ${stress}/10, 睡眠 ${sleep}時間, エネルギー ${energy}/10
+■ 日記本文:
+${content || '(本文未入力)'}`;
+
+            // クリップボードにコピー後、ChatGPTアプリを起動
+            navigator.clipboard.writeText(promptText).then(() => {
+                showToast('コピー完了！ChatGPTアプリを起動します');
+                setTimeout(() => {
+                    window.location.href = "chatgpt://";
+                }, 800);
+            }).catch(err => {
+                showToast('コピーに失敗しました');
+            });
         }
     </script>
 </body>
