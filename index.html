@@ -268,6 +268,31 @@
                     </div>
                 </div>
 
+                <!-- 4. ChatGPT 連携 & AIメッセージコーナー -->
+                <div class="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200/70 dark:border-slate-800 space-y-3">
+                    <span class="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1.5">
+                        <i class="fas fa-robot text-emerald-500"></i> ChatGPT連携・AIメッセージ
+                    </span>
+
+                    <!-- ワンタップボタン群 -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <button type="button" onclick="copyPromptForChatGPT()" class="py-2 px-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 text-emerald-700 dark:text-emerald-300 font-bold text-[11px] flex items-center justify-center gap-1.5 touch-active">
+                            <i class="fas fa-copy"></i> プロンプトをコピー
+                        </button>
+                        <a href="https://chatgpt.com" target="_blank" class="py-2 px-3 rounded-xl bg-slate-800 dark:bg-slate-700 text-white font-bold text-[11px] flex items-center justify-center gap-1.5 touch-active">
+                            <i class="fas fa-external-link-alt"></i> ChatGPTを開く
+                        </a>
+                    </div>
+
+                    <!-- AIメッセージ入力欄 (500文字制限) -->
+                    <div class="space-y-1 pt-1">
+                        <div class="flex justify-between items-center text-[11px]">
+                            <label for="ai-message-input" class="font-medium text-slate-500">ChatGPTからの回答・メッセージを貼り付け:</label>
+                            <span id="ai-msg-char-count" class="text-slate-400">0 / 500文字</span>
+                        </div>
+                        <textarea id="ai-message-input" maxlength="500" rows="3" oninput="updateAiMsgWordCount()" placeholder="ChatGPTから届いた振り返りやメッセージをここに貼り付けて保存できます（500文字以内）" class="w-full p-2.5 rounded-2xl bg-emerald-50/30 dark:bg-slate-950 border border-emerald-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-100 outline-none focus:ring-2 focus:ring-emerald-500 resize-none leading-relaxed"></textarea>
+                    </div>
+                </div>
                 <!-- Submit Button -->
                 <button type="submit" class="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 to-indigo-500 text-white font-bold text-sm shadow-md shadow-indigo-200 dark:shadow-none touch-active flex items-center justify-center gap-2">
                     <i class="fas fa-floppy-disk"></i> 日記を保存する
@@ -604,6 +629,7 @@
                 sleepHours: parseFloat(document.getElementById('sleep-hours').value),
                 energyLevel: parseInt(document.getElementById('energy-level').value),
                 stressLevel: parseInt(document.getElementById('stress-level').value),
+                aiMessage: document.getElementById('ai-message-input').value.substring(0, 500),
                 habits: {
                     exercise: document.getElementById('chk-exercise').checked,
                     water: document.getElementById('chk-water').checked,
@@ -641,6 +667,8 @@
             isCurrentFavorite = false;
             document.getElementById('btn-fav-toggle').className = 'text-slate-300 dark:text-slate-700 text-lg touch-active';
             updateWordCount();
+            document.getElementById('ai-message-input').value = '';
+updateAiMsgWordCount();
         }
 
         function createNewEntry() {
@@ -853,6 +881,8 @@
             document.getElementById('entry-weather').value = entry.weather || '☀️';
             selectWeather(entry.weather || '☀️');
             document.getElementById('entry-category').value = entry.category || 'プライベート';
+            document.getElementById('ai-message-input').value = entry.aiMessage || '';
+updateAiMsgWordCount();
             
             if (entry.emotions) {
                 entry.emotions.forEach(emoId => toggleEmotion(emoId));
